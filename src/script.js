@@ -163,8 +163,11 @@ fileOpenButton.addEventListener('click', async () => {
     promptForm.hidden = false;
     activeAssistantForm.hidden = false;
 
-    const { defaultTopK: topK, defaultTemperature: temperature } =
-      await LanguageModel.params();
+    const params =
+      typeof LanguageModel.params === 'function'
+        ? await LanguageModel.params()
+        : {};
+    const { defaultTopK: topK, defaultTemperature: temperature } = params;
 
     let isFirst = true;
     for (const uuid of uuids) {
@@ -175,6 +178,7 @@ fileOpenButton.addEventListener('click', async () => {
         temperature,
         conversationSummary: session.conversationSummary,
         expectedInputs: [{ type: 'text' }, { type: 'image' }],
+        expectedOutputs: [{ type: 'text', languages: ['en'] }],
       };
       const assistant = await self.LanguageModel.create(options);
       const { inputQuota, inputUsage } = assistant;
@@ -192,9 +196,12 @@ fileOpenButton.addEventListener('click', async () => {
       const conversationContainer = assistantClone.querySelector(
         '.conversation-container',
       );
-      assistantClone.querySelector('.tokens-so-far').textContent = inputUsage;
+      assistantClone.querySelector('.tokens-so-far').textContent =
+        inputUsage ?? '-';
       assistantClone.querySelector('.tokens-left').textContent =
-        inputQuota - assistant.inputUsage;
+        inputQuota != null && inputUsage != null
+          ? inputQuota - inputUsage
+          : '-';
       assistantContainer.append(assistantClone);
 
       for (const initialPrompt of options.initialPrompts) {
@@ -248,6 +255,7 @@ const createAssistant = async (options = {}) => {
   ];
   options.conversationSummary ||= NEW_CONVERSATION;
   options.expectedInputs ||= [{ type: 'text' }, { type: 'image' }];
+  options.expectedOutputs ||= [{ type: 'text', languages: ['en'] }];
   const assistant = await self.LanguageModel.create(options);
   assistants[uuid] = { assistant, options };
   await saveSession(uuid, options);
@@ -351,9 +359,12 @@ promptForm.addEventListener('submit', async (e) => {
     }
 
     const details = conversationContainer.closest('details');
-    details.querySelector('.tokens-so-far').textContent = assistant.inputUsage;
+    details.querySelector('.tokens-so-far').textContent =
+      assistant.inputUsage ?? '-';
     details.querySelector('.tokens-left').textContent =
-      assistant.inputQuota - assistant.inputUsage;
+      assistant.inputQuota != null && assistant.inputUsage != null
+        ? assistant.inputQuota - assistant.inputUsage
+        : '-';
 
     if (!file) {
       options.initialPrompts.push(
